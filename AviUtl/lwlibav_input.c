@@ -235,7 +235,7 @@ static void *open_file( char *file_path, reader_option_t *opt )
 static int get_video_track( lsmash_handler_t *h, video_option_t *opt )
 {
     libav_handler_t *hp = (libav_handler_t *)h->video_private;
-    if( lwlibav_video_get_desired_track( hp->lwh.file_path, hp->vdhp, hp->lwh.threads ) < 0 )
+    if( lwlibav_video_get_desired_track( hp->lwh.file_path, hp->vdhp, hp->lwh.threads, NULL ) < 0 )
         return -1;
     lw_log_handler_t *lhp = lwlibav_video_get_log_handler( hp->vdhp );
     lhp->level    = LW_LOG_WARNING;
@@ -247,7 +247,7 @@ static int get_video_track( lsmash_handler_t *h, video_option_t *opt )
 static int get_audio_track( lsmash_handler_t *h, audio_option_t *opt )
 {
     libav_handler_t *hp = (libav_handler_t *)h->audio_private;
-    if( lwlibav_audio_get_desired_track( hp->lwh.file_path, hp->adhp, hp->lwh.threads ) < 0 )
+    if( lwlibav_audio_get_desired_track( hp->lwh.file_path, hp->adhp, hp->lwh.threads, NULL ) < 0 )
         return -1;
     lw_log_handler_t *lhp = lwlibav_audio_get_log_handler( hp->adhp );
     lhp->level    = LW_LOG_WARNING;

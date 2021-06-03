@@ -91,14 +91,24 @@ static inline int lavf_open_file
 (
     AVFormatContext **format_ctx,
     const char       *file_path,
-    lw_log_handler_t *lhp
+    lw_log_handler_t *lhp,
+    const char       *options
 )
 {
-    if( avformat_open_input( format_ctx, file_path, NULL, NULL ) )
+    AVDictionary *d = NULL;
+    if ( options && av_dict_parse_string( &d, options, "=", " ,", 0 ) < 0)
     {
+        av_dict_free(&d);
+        lw_log_show ( lhp, LW_LOG_FATAL, "Failed to parse options: %s", options );
+        return -1;
+    }
+    if( avformat_open_input( format_ctx, file_path, NULL, &d ) )
+    {
+        av_dict_free(&d);
         lw_log_show( lhp, LW_LOG_FATAL, "Failed to avformat_open_input." );
         return -1;
     }
+    av_dict_free(&d);
     if( avformat_find_stream_info( *format_ctx, NULL ) < 0 )
     {
         lw_log_show( lhp, LW_LOG_FATAL, "Failed to avformat_find_stream_info." );

@@ -157,7 +157,7 @@ LWLibavVideoSource::LWLibavVideoSource
             env->ThrowError("LWLibavVideoSource: repeat requested for %d frames by input video, but unable to obey (try repeat=0 to get a VFR clip).");
     }
     /* Get the desired video track. */
-    if( lwlibav_video_get_desired_track( lwh.file_path, vdhp, lwh.threads ) < 0 )
+    if( lwlibav_video_get_desired_track( lwh.file_path, vdhp, lwh.threads, NULL ) < 0 )
         env->ThrowError( "LWLibavVideoSource: failed to get the video track." );
     /* Set average framerate. */
     int64_t fps_num = 25;
@@ -289,7 +289,7 @@ LWLibavAudioSource::LWLibavAudioSource
     free_video_decode_handler();
     free_video_output_handler();
     /* Get the desired video track. */
-    if( lwlibav_audio_get_desired_track( lwh.file_path, adhp, lwh.threads ) < 0 )
+    if( lwlibav_audio_get_desired_track( lwh.file_path, adhp, lwh.threads, NULL ) < 0 )
         env->ThrowError( "LWLibavAudioSource: failed to get the audio track." );
     prepare_audio_decoding( adhp, aohp, channel_layout, sample_rate, lwh, vi, env );
 }

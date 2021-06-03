@@ -316,6 +316,7 @@ void VS_CC vs_lwlibavsource_create( const VSMap *in, VSMap *out, void *user_data
     const char *format;
     const char *preferred_decoder_names;
     const char *cache_dir;
+    const char *lavf_options;
     set_option_int64 ( &stream_index,           -1,    "stream_index",   in, vsapi );
     set_option_int64 ( &threads,                 0,    "threads",        in, vsapi );
     set_option_int64 ( &cache_index,             1,    "cache",          in, vsapi );
@@ -333,11 +334,13 @@ void VS_CC vs_lwlibavsource_create( const VSMap *in, VSMap *out, void *user_data
     set_option_string( &format,                  NULL, "format",         in, vsapi );
     set_option_string( &preferred_decoder_names, NULL, "decoder",        in, vsapi );
     set_option_string( &cache_dir,               DEFAULT_CACHEDIR,  "cachedir",       in, vsapi );
+    set_option_string( &lavf_options,            NULL, "options",        in, vsapi );
     set_preferred_decoder_names_on_buf( hp->preferred_decoder_names_buf, preferred_decoder_names );
     /* Set options. */
     lwlibav_option_t opt;
     opt.file_path         = file_path;
     opt.cache_dir         = cache_dir;
+    opt.lavf_options      = lavf_options;
     opt.threads           = threads >= 0 ? threads : 0;
     opt.av_sync           = 0;
     opt.no_create_index   = !cache_index;
@@ -403,7 +406,7 @@ void VS_CC vs_lwlibavsource_create( const VSMap *in, VSMap *out, void *user_data
     }
     /* Get the desired video track. */
     lwlibav_video_set_log_handler( vdhp, &lh );
-    if( lwlibav_video_get_desired_track( lwhp->file_path, vdhp, lwhp->threads ) < 0 )
+    if( lwlibav_video_get_desired_track( lwhp->file_path, vdhp, lwhp->threads, lavf_options ) < 0 )
     {
         free_handler( &hp );
         vsapi->setError( out, "lsmas: failed to get video track." );

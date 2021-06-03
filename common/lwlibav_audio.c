@@ -194,13 +194,14 @@ int lwlibav_audio_get_desired_track
 (
     const char                     *file_path,
     lwlibav_audio_decode_handler_t *adhp,
-    int                             threads
+    int                             threads,
+    const char                     *options
 )
 {
     AVCodecContext *ctx = NULL;
     if( adhp->stream_index < 0
      || adhp->frame_count == 0
-     || lavf_open_file( &adhp->format, file_path, &adhp->lh ) < 0
+     || lavf_open_file( &adhp->format, file_path, &adhp->lh, options ) < 0
      || find_and_open_decoder( &ctx, adhp->format->streams[ adhp->stream_index ]->codecpar,
                                adhp->preferred_decoder_names, 0, threads ) < 0 )
     {

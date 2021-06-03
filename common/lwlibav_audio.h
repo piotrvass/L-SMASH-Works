@@ -110,7 +110,8 @@ int lwlibav_audio_get_desired_track
 (
     const char                     *file_path,
     lwlibav_audio_decode_handler_t *adhp,
-    int                             threads
+    int                             threads,
+    const char                     *options
 );
 
 uint64_t lwlibav_audio_count_overall_pcm_samples

@@ -3455,7 +3455,7 @@ int lwlibav_construct_index
             lwhp->file_path[file_path_length - 4] = '\0';
     }
     AVFormatContext *format_ctx = NULL;
-    if( lavf_open_file( &format_ctx, lwhp->file_path, lhp ) )
+    if( lavf_open_file( &format_ctx, lwhp->file_path, lhp, opt->lavf_options ) )
     {
         if( format_ctx )
             lavf_close_file( &format_ctx );

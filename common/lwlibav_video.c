@@ -271,13 +271,14 @@ int lwlibav_video_get_desired_track
 (
     const char                     *file_path,
     lwlibav_video_decode_handler_t *vdhp,
-    int                             threads
+    int                             threads,
+    const char                     *options
 )
 {
     AVCodecContext *ctx = NULL;
     if( vdhp->stream_index < 0
      || vdhp->frame_count == 0
-     || lavf_open_file( &vdhp->format, file_path, &vdhp->lh ) < 0
+     || lavf_open_file( &vdhp->format, file_path, &vdhp->lh, options ) < 0
      || find_and_open_decoder( &ctx, vdhp->format->streams[ vdhp->stream_index ]->codecpar,
                                vdhp->preferred_decoder_names, vdhp->prefer_hw_decoder, threads ) < 0 )
     {

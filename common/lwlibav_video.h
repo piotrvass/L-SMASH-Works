@@ -164,7 +164,8 @@ int lwlibav_video_get_desired_track
 (
     const char                     *file_path,
     lwlibav_video_decode_handler_t *vdhp,
-    int                             threads
+    int                             threads,
+    const char                     *options
 );
 
 void lwlibav_video_setup_timestamp_info
