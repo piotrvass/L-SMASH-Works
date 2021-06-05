@@ -96,7 +96,7 @@ static inline int lavf_open_file
 )
 {
     AVDictionary *d = NULL;
-    if ( options && av_dict_parse_string( &d, options, "=", " ,", 0 ) < 0)
+    if ( options && av_dict_parse_string( &d, options, "=", " ", 0 ) < 0)
     {
         av_dict_free(&d);
         lw_log_show ( lhp, LW_LOG_FATAL, "Failed to parse options: %s", options );

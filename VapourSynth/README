@@ -171,7 +171,7 @@
                 + cachedir (default : DEFAULT_CACHEDIR)
                     Create *.lwi file under this directory with names encoding the full path to avoid collisions. Set to "" to restore the previous behavior (storing *.lwi along side the source video file).
                 + options (default : "")
-                    Pass additional options (`key=value` separated by "," or " ") to avformat_open_input (e.g. "safe=0 auto_convert=0").
+                    Pass additional options (space separated `key=value` pairs) to avformat_open_input (e.g. "safe=0 auto_convert=0").
 
         [Version]
             Version()
