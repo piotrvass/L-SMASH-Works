@@ -42,13 +42,10 @@ typedef VSFrame VSFrameRef;
 // video formats
 #define getFrameFormat getVideoFrameFormat
 typedef VSVideoFormat VSFormat;
-#define VS_MAKE_VIDEO_ID(colorFamily, sampleType, bitsPerSample, subSamplingW, subSamplingH) ((colorFamily << 28) | (sampleType << 24) | (bitsPerSample << 16) | (subSamplingW << 8) | (subSamplingH << 0)) // ugly.
 enum {
-    pfRGB27 = VS_MAKE_VIDEO_ID(cfRGB, stInteger, 9, 0, 0),
     cmRGB = cfRGB,
     cmGray = cfGray,
 };
-#undef VS_MAKE_VIDEO_ID
 
 #define vs_bitblt vsh_bitblt
 
