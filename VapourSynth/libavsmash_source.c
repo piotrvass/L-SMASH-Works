@@ -89,16 +89,6 @@ static lsmas_handler_t *alloc_handler
     return hp;
 }
 
-#ifndef VS_API4
-static void VS_CC vs_filter_init( VSMap *in, VSMap *out, void **instance_data, VSNode *node, VSCore *core, const VSAPI *vsapi )
-{
-    // TODO: handle alpha clips properly.
-    lsmas_handler_t *hp = (lsmas_handler_t *)*instance_data;
-    AVCodecContext *ctx = libavsmash_video_get_codec_context( hp->vdhp );
-    vsapi->setVideoInfo( hp->vi, (av_pix_fmt_desc_get( ctx->pix_fmt )->flags & AV_PIX_FMT_FLAG_ALPHA) ? 2 : 1, node );
-}
-#endif
-
 static int get_composition_duration
 (
     libavsmash_video_decode_handler_t *vdhp,
@@ -268,12 +258,23 @@ static const VSFrameRef *VS_CC vs_filter_get_frame( int n, int activation_reason
     }
     /* Output video frame. */
     AVFrame    *av_frame = libavsmash_video_get_frame_buffer( vdhp );
-    int output_index = 0; //vsapi->getOutputIndex( frame_ctx );
-    VSFrameRef *vs_frame = make_frame( vohp, av_frame, output_index );
+    VSFrameRef *vs_frame = make_frame( vohp, av_frame, 0 );
     if( !vs_frame )
     {
         vsapi->setFilterError( "lsmas: failed to output a video frame.", frame_ctx );
         return NULL;
+    }
+    AVCodecContext *ctx = libavsmash_video_get_codec_context( vdhp );
+    if (av_pix_fmt_desc_get( ctx->pix_fmt )->flags & AV_PIX_FMT_FLAG_ALPHA)
+    {
+        VSFrameRef *vs_frame2 = make_frame( vohp, av_frame, 1 );
+        if( !vs_frame2 )
+        {
+            vsapi->setFilterError( "lsmas: failed to output an alpha video frame.", frame_ctx );
+            return NULL;
+        }
+        VSMap *props = vsapi->getFramePropertiesRW( vs_frame );
+        vsapi->mapConsumeFrame( props, "_Alpha", vs_frame2, maReplace );
     }
     set_frame_properties( vdhp, n, vi, av_frame, vs_frame, sample_number, vsapi );
     return vs_frame;
