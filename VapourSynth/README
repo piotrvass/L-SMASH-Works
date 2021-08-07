@@ -1,3 +1,5 @@
+This is using VapourSynth API v4 and is incompatible with v3.
+
 [File]
     vslsmashsource.dll    : A source plugin for VapourSynth
 
