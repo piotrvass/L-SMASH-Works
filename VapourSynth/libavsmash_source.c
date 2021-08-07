@@ -43,6 +43,8 @@ typedef struct
     libavsmash_video_output_handler_t *vohp;
     lsmash_file_parameters_t           file_param;
     AVFormatContext                   *format_ctx;
+    int                                cache_threshold;
+    int                                last_frame;
     char preferred_decoder_names_buf[PREFERRED_DECODER_NAMES_BUFSIZE];
 } lsmas_handler_t;
 
@@ -224,33 +226,19 @@ static int prepare_video_decoding
     return 0;
 }
 
-static const VSFrameRef *VS_CC vs_filter_get_frame( int n, int activation_reason, void *instance_data, void **frame_data, VSFrameContext *frame_ctx, VSCore *core, const VSAPI *vsapi )
+static VSFrameRef *get_frame
+(
+    int                            n,
+    lsmas_handler_t                *hp,
+    VSFrameContext                 *frame_ctx,
+    VSCore                         *core,
+    const VSAPI                    *vsapi
+)
 {
-    if( activation_reason != arInitial )
-        return NULL;
-    lsmas_handler_t *hp = (lsmas_handler_t *)instance_data;
     VSVideoInfo     *vi = &hp->vi[0];
     uint32_t sample_number = MIN( n + 1, vi->numFrames );   /* For L-SMASH, sample_number is 1-origin. */
     libavsmash_video_decode_handler_t *vdhp = hp->vdhp;
     libavsmash_video_output_handler_t *vohp = hp->vohp;
-    if( libavsmash_video_get_error( vdhp ) )
-    {
-        vsapi->setFilterError( "lsmas: failed to output a video frame.", frame_ctx );
-        return NULL;
-    }
-    /* Set up VapourSynth error handler. */
-    vs_basic_handler_t vsbh = { 0 };
-    vsbh.out       = NULL;
-    vsbh.frame_ctx = frame_ctx;
-    vsbh.vsapi     = vsapi;
-    lw_log_handler_t *lhp = libavsmash_video_get_log_handler( vdhp );
-    lhp->priv     = &vsbh;
-    lhp->show_log = set_error;
-    /* Get and decode the desired video frame. */
-    vs_video_output_handler_t *vs_vohp = (vs_video_output_handler_t *)vohp->private_handler;
-    vs_vohp->frame_ctx = frame_ctx;
-    vs_vohp->core      = core;
-    vs_vohp->vsapi     = vsapi;
     if( libavsmash_video_get_frame( vdhp, vohp, sample_number ) < 0 )
     {
         vsapi->setFilterError( "lsmas: failed to output a video frame.", frame_ctx );
@@ -278,6 +266,44 @@ static const VSFrameRef *VS_CC vs_filter_get_frame( int n, int activation_reason
     }
     set_frame_properties( vdhp, n, vi, av_frame, vs_frame, sample_number, vsapi );
     return vs_frame;
+}
+
+static const VSFrameRef *VS_CC vs_filter_get_frame( int n, int activation_reason, void *instance_data, void **frame_data, VSFrameContext *frame_ctx, VSCore *core, const VSAPI *vsapi )
+{
+    if( activation_reason != arInitial )
+        return NULL;
+    lsmas_handler_t *hp = (lsmas_handler_t *)instance_data;
+    libavsmash_video_decode_handler_t *vdhp = hp->vdhp;
+    libavsmash_video_output_handler_t *vohp = hp->vohp;
+    if( libavsmash_video_get_error( vdhp ) )
+    {
+        vsapi->setFilterError( "lsmas: failed to output a video frame.", frame_ctx );
+        return NULL;
+    }
+    /* Set up VapourSynth error handler. */
+    vs_basic_handler_t vsbh = { 0 };
+    vsbh.out       = NULL;
+    vsbh.frame_ctx = frame_ctx;
+    vsbh.vsapi     = vsapi;
+    lw_log_handler_t *lhp = libavsmash_video_get_log_handler( vdhp );
+    lhp->priv     = &vsbh;
+    lhp->show_log = set_error;
+    /* Get and decode the desired video frame. */
+    vs_video_output_handler_t *vs_vohp = (vs_video_output_handler_t *)vohp->private_handler;
+    vs_vohp->frame_ctx = frame_ctx;
+    vs_vohp->core      = core;
+    vs_vohp->vsapi     = vsapi;
+
+    if ( hp->last_frame < n && hp->last_frame > n - hp->cache_threshold ) {
+        for ( int i = hp->last_frame + 1; i < n; i++ ) {
+            const VSFrameRef *frame = get_frame( i, hp, frame_ctx, core, vsapi );
+            vsapi->cacheFrame(frame, i, frame_ctx);
+            vsapi->freeFrame(frame);
+        }
+    }
+    const VSFrameRef *frame = get_frame( n, hp, frame_ctx, core, vsapi );
+    hp->last_frame = n;
+    return frame;
 }
 
 static void VS_CC vs_filter_free( void *instance_data, VSCore *core, const VSAPI *vsapi )
@@ -415,6 +441,6 @@ void VS_CC vs_libavsmashsource_create( const VSMap *in, VSMap *out, void *user_d
     lsmash_discard_boxes( libavsmash_video_get_root( vdhp ) );
     //vsapi->createFilter( in, out, "LibavSMASHSource", vs_filter_init, vs_filter_get_frame, vs_filter_free, fmUnordered, nfMakeLinear, hp, core );
     VSNode *node = vsapi->createVideoFilter2( "LibavSMASHSource", hp->vi, vs_filter_get_frame, vs_filter_free, fmUnordered, NULL, 0, hp, core );
-    vsapi->setLinearFilter(node); // TODO: set cache threshold?
+    hp->cache_threshold = vsapi->setLinearFilter(node);
     vsapi->mapConsumeNode(out, "clip", node, maAppend);
 }
