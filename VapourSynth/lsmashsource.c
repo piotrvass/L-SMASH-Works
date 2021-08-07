@@ -80,40 +80,45 @@ void VS_CC vs_version_create( const VSMap *in, VSMap *out, void *user_data, VSCo
     vsapi->propSetData(out, "ffmpeg_version", LIBAVFORMAT_IDENT, -1, paAppend);
     vsapi->propSetData(out, "ffmpeg_version", LIBAVUTIL_IDENT, -1, paAppend);
     vsapi->propSetData(out, "ffmpeg_version", LIBSWSCALE_IDENT, -1, paAppend);
+    vsapi->propSetData(out, "api", "v4", -1, paAppend);
 }
 
-VS_EXTERNAL_API(void) VapourSynthPluginInit( VSConfigPlugin config_func, VSRegisterFunction register_func, VSPlugin *plugin )
+VS_EXTERNAL_API(void) VapourSynthPluginInit2(VSPlugin *plugin, const VSPLUGINAPI *vspapi)
 {
-    config_func
+    vspapi->configPlugin
     (
         "systems.innocent.lsmas",
         "lsmas",
         "LSMASHSource for VapourSynth",
+        VS_MAKE_VERSION(1,0),
         VAPOURSYNTH_API_VERSION,
-        1,
+        0,
         plugin
     );
 #define COMMON_OPTS "threads:int:opt;seek_mode:int:opt;seek_threshold:int:opt;dr:int:opt;fpsnum:int:opt;fpsden:int:opt;variable:int:opt;format:data:opt;decoder:data:opt;prefer_hw:int:opt;"
-    register_func
+    vspapi->registerFunction
     (
         "LibavSMASHSource",
         "source:data;track:int:opt;" COMMON_OPTS "ff_loglevel:int:opt;",
+        "clip:vnode;",
         vs_libavsmashsource_create,
         NULL,
         plugin
     );
-    register_func
+    vspapi->registerFunction
     (
         "LWLibavSource",
         "source:data;stream_index:int:opt;cache:int:opt;cachefile:data:opt;" COMMON_OPTS "repeat:int:opt;dominance:int:opt;ff_loglevel:int:opt;cachedir:data:opt;",
+        "clip:vnode;",
         vs_lwlibavsource_create,
         NULL,
         plugin
     );
-    register_func
+    vspapi->registerFunction
     (
         "Version",
         "",
+        "version:data;config:data;ffmpeg_version:data;api:data;",
         vs_version_create,
         NULL,
         plugin

@@ -21,7 +21,39 @@
 /* This file is available under an ISC license.
  * However, when distributing its binary file, it will be under LGPL or GPL. */
 
-#include <VapourSynth.h>
+#include <VapourSynth4.h>
+
+#define VS_API4 1
+
+// Minimize changes between APIs.
+typedef VSFrame VSFrameRef;
+#define paAppend maAppend
+#define cloneFrameRef(f) copyFrame(f, core)
+// map
+#define paReplace maReplace
+#define propGetInt mapGetInt
+#define propSetInt mapSetInt
+#define propGetData mapGetData
+#define propSetData(map,key,data,size,append) mapSetData(map,key,data,size,dtUnknown,append)
+#define propSetFloat mapSetFloat
+#define propSetFloatArray mapSetFloatArray
+#define getFramePropsRW getFramePropertiesRW
+#define setError mapSetError
+// video formats
+#define getFrameFormat getVideoFrameFormat
+typedef VSVideoFormat VSFormat;
+#define VS_MAKE_VIDEO_ID(colorFamily, sampleType, bitsPerSample, subSamplingW, subSamplingH) ((colorFamily << 28) | (sampleType << 24) | (bitsPerSample << 16) | (subSamplingW << 8) | (subSamplingH << 0)) // ugly.
+enum {
+    pfRGB27 = VS_MAKE_VIDEO_ID(cfRGB, stInteger, 9, 0, 0),
+    cmRGB = cfRGB,
+    cmGray = cfGray,
+};
+#undef VS_MAKE_VIDEO_ID
+
+#define vs_bitblt vsh_bitblt
+
+
+// end of API4 compat.
 
 #include "../common/utils.h"
 

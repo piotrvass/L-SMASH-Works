@@ -89,12 +89,15 @@ static lsmas_handler_t *alloc_handler
     return hp;
 }
 
+#ifndef VS_API4
 static void VS_CC vs_filter_init( VSMap *in, VSMap *out, void **instance_data, VSNode *node, VSCore *core, const VSAPI *vsapi )
 {
+    // TODO: handle alpha clips properly.
     lsmas_handler_t *hp = (lsmas_handler_t *)*instance_data;
     AVCodecContext *ctx = libavsmash_video_get_codec_context( hp->vdhp );
     vsapi->setVideoInfo( hp->vi, (av_pix_fmt_desc_get( ctx->pix_fmt )->flags & AV_PIX_FMT_FLAG_ALPHA) ? 2 : 1, node );
 }
+#endif
 
 static int get_composition_duration
 (
@@ -215,12 +218,11 @@ static int prepare_video_decoding
     hp->vi[0].fpsNum    = fps_num;
     hp->vi[0].fpsDen    = fps_den;
     hp->vi[0].numFrames = vohp->frame_count;
-    if( (av_pix_fmt_desc_get( ctx->pix_fmt )->flags & AV_PIX_FMT_FLAG_ALPHA)
-     && hp->vi[0].format )
+    if( (av_pix_fmt_desc_get( ctx->pix_fmt )->flags & AV_PIX_FMT_FLAG_ALPHA) )
     {
         hp->vi[1] = hp->vi[0];
-        hp->vi[1].format = vsapi->registerFormat( cmGray, hp->vi[0].format->sampleType, hp->vi[0].format->bitsPerSample, 0, 0, core );
-        vs_vohp->background_frame[1] = vsapi->newVideoFrame( hp->vi[1].format, hp->vi[1].width, hp->vi[1].height, NULL, core );
+        vsapi->queryVideoFormat(&hp->vi[1].format, cmGray, hp->vi[0].format.sampleType, hp->vi[0].format.bitsPerSample, 0, 0, core );
+        vs_vohp->background_frame[1] = vsapi->newVideoFrame( &hp->vi[1].format, hp->vi[1].width, hp->vi[1].height, NULL, core );
         if( !vs_vohp->background_frame[1] )
         {
             set_error_on_init( out, vsapi, "lsmas: failed to allocate memory for the alpha frame data." );
@@ -232,11 +234,11 @@ static int prepare_video_decoding
     return 0;
 }
 
-static const VSFrameRef *VS_CC vs_filter_get_frame( int n, int activation_reason, void **instance_data, void **frame_data, VSFrameContext *frame_ctx, VSCore *core, const VSAPI *vsapi )
+static const VSFrameRef *VS_CC vs_filter_get_frame( int n, int activation_reason, void *instance_data, void **frame_data, VSFrameContext *frame_ctx, VSCore *core, const VSAPI *vsapi )
 {
     if( activation_reason != arInitial )
         return NULL;
-    lsmas_handler_t *hp = (lsmas_handler_t *)*instance_data;
+    lsmas_handler_t *hp = (lsmas_handler_t *)instance_data;
     VSVideoInfo     *vi = &hp->vi[0];
     uint32_t sample_number = MIN( n + 1, vi->numFrames );   /* For L-SMASH, sample_number is 1-origin. */
     libavsmash_video_decode_handler_t *vdhp = hp->vdhp;
@@ -266,7 +268,7 @@ static const VSFrameRef *VS_CC vs_filter_get_frame( int n, int activation_reason
     }
     /* Output video frame. */
     AVFrame    *av_frame = libavsmash_video_get_frame_buffer( vdhp );
-    int output_index = vsapi->getOutputIndex( frame_ctx );
+    int output_index = 0; //vsapi->getOutputIndex( frame_ctx );
     VSFrameRef *vs_frame = make_frame( vohp, av_frame, output_index );
     if( !vs_frame )
     {
@@ -410,5 +412,8 @@ void VS_CC vs_libavsmashsource_create( const VSMap *in, VSMap *out, void *user_d
         return;
     }
     lsmash_discard_boxes( libavsmash_video_get_root( vdhp ) );
-    vsapi->createFilter( in, out, "LibavSMASHSource", vs_filter_init, vs_filter_get_frame, vs_filter_free, fmUnordered, nfMakeLinear, hp, core );
+    //vsapi->createFilter( in, out, "LibavSMASHSource", vs_filter_init, vs_filter_get_frame, vs_filter_free, fmUnordered, nfMakeLinear, hp, core );
+    VSNode *node = vsapi->createVideoFilter2( "LibavSMASHSource", hp->vi, vs_filter_get_frame, vs_filter_free, fmUnordered, NULL, 0, hp, core );
+    vsapi->setLinearFilter(node); // TODO: set cache threshold?
+    vsapi->mapConsumeNode(out, "clip", node, maAppend);
 }

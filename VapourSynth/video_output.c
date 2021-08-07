@@ -37,7 +37,7 @@
 
 #include "lsmashsource.h"
 #include "video_output.h"
-#include <VSHelper.h>
+#include <VSHelper4.h>
 
 #include <emmintrin.h>
 
@@ -743,8 +743,9 @@ static VSFrameRef *new_output_video_frame
         if( !av_frame->opaque
          && determine_colorspace_conversion( vs_vohp, output_index, av_frame->format, output_pixel_format ) < 0 )
             goto fail;
-        const VSFormat *vs_format = vsapi->getFormatPreset( vs_vohp->vs_output_pixel_format, core );
-        return vsapi->newVideoFrame( vs_format, av_frame->width, av_frame->height, NULL, core );
+        VSFormat vs_format;
+        if (vsapi->getVideoFormatByID(&vs_format, vs_vohp->vs_output_pixel_format, core) == 0) goto fail;
+        return vsapi->newVideoFrame( &vs_format, av_frame->width, av_frame->height, NULL, core );
     }
     else
     {
@@ -981,7 +982,7 @@ int vs_setup_video_rendering
                            ctx, dr_get_buffer );
     if( vs_vohp->variable_info )
     {
-        vi->format = NULL;
+        memset(&vi->format, 0, sizeof vi->format);
         vi->width  = 0;
         vi->height = 0;
         /* Unused */
@@ -990,10 +991,11 @@ int vs_setup_video_rendering
     }
     else
     {
-        vi->format = vsapi->getFormatPreset( vs_vohp->vs_output_pixel_format, vs_vohp->core );
+        if (vsapi->getVideoFormatByID(&vi->format, vs_vohp->vs_output_pixel_format, vs_vohp->core) == 0)
+            return -1;
         vi->width  = lw_vohp->output_width;
         vi->height = lw_vohp->output_height;
-        vs_vohp->background_frame[0] = vsapi->newVideoFrame( vi->format, vi->width, vi->height, NULL, vs_vohp->core );
+        vs_vohp->background_frame[0] = vsapi->newVideoFrame( &vi->format, vi->width, vi->height, NULL, vs_vohp->core );
         if( !vs_vohp->background_frame[0] )
         {
             set_error_on_init( out, vsapi, "lsmas: failed to allocate memory for the background black frame data." );
