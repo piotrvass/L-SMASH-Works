@@ -39,30 +39,39 @@ extern "C"
 
 /* Close and open the new decoder to flush buffers in the decoder even if the decoder implements avcodec_flush_buffers().
  * It seems this brings about more stable composition when seeking.
- * Note that this function could reallocate AVCodecContext. */
+ * Note that this function could reallocate AVCodecContext.
+ *
+ * After https://github.com/AkarinVS/L-SMASH-Works/issues/10, we do soft reset for LWLibavSource. AVS filters and VS
+ * LibavSMASHSource still use the old hard reset behavior. */
 void lwlibav_flush_buffers
 (
     lwlibav_decode_handler_t *dhp
 )
 {
-    const AVCodecParameters *codecpar     = dhp->format->streams[ dhp->stream_index ]->codecpar;
-    const AVCodec           *codec        = dhp->ctx->codec;
-    void                    *app_specific = dhp->ctx->opaque;
-    AVCodecContext *ctx = NULL;
-    if( open_decoder( &ctx, codecpar, codec, dhp->ctx->thread_count ) < 0 )
-    {
+    if ( dhp->soft_reset ) {
+        // Not using hard reset is generally safe for modern video decoders.
+        // For example, this is how ffms2 does seeking.
         avcodec_flush_buffers( dhp->ctx );
-        dhp->error = 1;
-        lw_log_show( &dhp->lh, LW_LOG_FATAL,
-                     "Failed to flush buffers by a reliable way.\n"
-                     "It is recommended you reopen the file." );
-    }
-    else
-    {
-        dhp->ctx->opaque = NULL;
-        avcodec_free_context( &dhp->ctx );
-        dhp->ctx = ctx;
-        dhp->ctx->opaque = app_specific;
+    } else {
+        const AVCodecParameters *codecpar     = dhp->format->streams[ dhp->stream_index ]->codecpar;
+        const AVCodec           *codec        = dhp->ctx->codec;
+        void                    *app_specific = dhp->ctx->opaque;
+        AVCodecContext *ctx = NULL;
+        if( open_decoder( &ctx, codecpar, codec, dhp->ctx->thread_count ) < 0 )
+        {
+            avcodec_flush_buffers( dhp->ctx );
+            dhp->error = 1;
+            lw_log_show( &dhp->lh, LW_LOG_FATAL,
+                         "Failed to flush buffers by a reliable way.\n"
+                         "It is recommended you reopen the file." );
+        }
+        else
+        {
+            dhp->ctx->opaque = NULL;
+            avcodec_free_context( &dhp->ctx );
+            dhp->ctx = ctx;
+            dhp->ctx->opaque = app_specific;
+        }
     }
     dhp->exh.delay_count = 0;
 }

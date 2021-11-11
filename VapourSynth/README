@@ -122,7 +122,7 @@ This is using VapourSynth API v4 and is incompatible with v3.
             LWLibavSource(string source, int stream_index = -1, int threads = 0, int cache = 1, string cachefile = source + ".lwi",
                           int seek_mode = 0, int seek_threshold = 10, int dr = 0, int fpsnum = 0, int fpsden = 1, 
                           int variable = 0, string format = "", int repeat = 1, int dominance = 0, string decoder = "", int prefer_hw = 0, int ff_loglevel = 0,
-                          string cachedir = DEFAULT_CACHEDIR)
+                          string cachedir = DEFAULT_CACHEDIR, bint soft_reset = 1)
                 * This function uses libavcodec as video decoder and libavformat as demuxer.
             [Arguments]
                 + source
@@ -172,6 +172,14 @@ This is using VapourSynth API v4 and is incompatible with v3.
                     Same as 'ff_loglevel' of LibavSMASHSource().
                 + cachedir (default : DEFAULT_CACHEDIR)
                     Create *.lwi file under this directory with names encoding the full path to avoid collisions. Set to "" to restore the previous behavior (storing *.lwi along side the source video file).
+                + soft_reset (default : 1)
+                    Whether to do a soft reset of the video decoder when seeking. The usual way to seek is to flush the
+                    video decoder (soft reset), but some buggy video decoder might need to do a hard reset (by opening
+                    a new decoder instance altogether). Set 'soft_reset' to 0 if encountered incorrect seeking.
+                    Although hard resets used to be the default behavior, it does cause issues sometimes, e.g.:
+                    YUV444p10 AVC content, see https://github.com/AkarinVS/L-SMASH-Works/issues/10.
+                    (Also note: LibavSMASHSource and the AVS filters still default to hard reset for compatbility with
+                    the old lsmas' behavior.)
 
         [Version]
             Version()

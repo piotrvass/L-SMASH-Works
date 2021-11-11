@@ -1574,24 +1574,33 @@ static int append_extradata_if_new
         {
             if( parser_ctx->parser->split )
             {
-                /* For H.264 stream without start codes, don't split extradata from pkt->data.
-                 * Its extradata is stored as global header. so, pkt->data shall contain no extradata.
-                 * Libavcodec may not remove meaningless data which precedes data actually needed for decoding,
-                 * so get the offset to such significant data here to deduplicate extradata as much as possible. */
-                int extradata_size = helper->bsf ? 0 : parser_ctx->parser->split( ctx, pkt->data, pkt->size );
-                if( extradata_size > 0 )
+                /* WMV3 (VC1) extradata must be a sequence header (vc1_decode_init), however, vc1_split does
+                 * not guarantee it will split at the sequence header. In fact, I'm not sure there are WMV3
+                 * out there that changes sequence header mid-stream. As we have known WMV3 samples that
+                 * vc1_split produces incorrect extradata (rejected by ff_vc1_decode_sequence_header called
+                 * by vc1_decode_init), we will skip splitting here until we can find a sample where such
+                 * split is necessary. */
+                if( ctx->codec_id != AV_CODEC_ID_WMV3 )
                 {
-                    int offset = get_offset_to_significant_extradata( ctx, pkt );
-                    current.extradata      = pkt->data + (uintptr_t)offset;
-                    current.extradata_size = extradata_size - offset;
+                    /* For H.264 stream without start codes, don't split extradata from pkt->data.
+                     * Its extradata is stored as global header. so, pkt->data shall contain no extradata.
+                     * Libavcodec may not remove meaningless data which precedes data actually needed for decoding,
+                     * so get the offset to such significant data here to deduplicate extradata as much as possible. */
+                    int extradata_size = helper->bsf ? 0 : parser_ctx->parser->split( ctx, pkt->data, pkt->size );
+                    if( extradata_size > 0 )
+                    {
+                        int offset = get_offset_to_significant_extradata( ctx, pkt );
+                        current.extradata      = pkt->data + (uintptr_t)offset;
+                        current.extradata_size = extradata_size - offset;
+                    }
+                    else if( list->entry_count > 0 )
+                        /* Probably, this frame is a keyframe in CODEC level
+                         * but should not be a random accessible point in container level.
+                         * For instance, an IDR-picture which corresponding SPSs and PPSs
+                         * do not precede immediately might not be decodable correctly
+                         * when decoding from there in MPEG-2 transport stream. */
+                        return list->current_index;
                 }
-                else if( list->entry_count > 0 )
-                    /* Probably, this frame is a keyframe in CODEC level
-                     * but should not be a random accessible point in container level.
-                     * For instance, an IDR-picture which corresponding SPSs and PPSs
-                     * do not precede immediately might not be decodable correctly
-                     * when decoding from there in MPEG-2 transport stream. */
-                    return list->current_index;
             }
             else if( helper->bsf && ctx->codec_id == AV_CODEC_ID_AAC )
             {

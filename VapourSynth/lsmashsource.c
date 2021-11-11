@@ -60,10 +60,10 @@ void set_error_on_init
     ...
 )
 {
-    char message[256];
+    char message[4096];
     va_list args;
     va_start( args, format );
-    vsprintf( message, format, args );
+    vsnprintf( message, sizeof message, format, args );
     va_end( args );
     vsapi->setError( out, message );
 }
@@ -108,7 +108,7 @@ VS_EXTERNAL_API(void) VapourSynthPluginInit2(VSPlugin *plugin, const VSPLUGINAPI
     vspapi->registerFunction
     (
         "LWLibavSource",
-        "source:data;stream_index:int:opt;cache:int:opt;cachefile:data:opt;" COMMON_OPTS "repeat:int:opt;dominance:int:opt;ff_loglevel:int:opt;cachedir:data:opt;",
+        "source:data;stream_index:int:opt;cache:int:opt;cachefile:data:opt;" COMMON_OPTS "repeat:int:opt;dominance:int:opt;ff_loglevel:int:opt;cachedir:data:opt;soft_reset:int:opt;",
         "clip:vnode;",
         vs_lwlibavsource_create,
         NULL,

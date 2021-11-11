@@ -183,6 +183,10 @@ static int prepare_video_decoding
     vs_vohp->vsapi     = vsapi;
     int max_width  = libavsmash_video_get_max_width ( vdhp );
     int max_height = libavsmash_video_get_max_height( vdhp );
+    if ( max_width == 0 || max_height == 0 ) {
+        set_error_on_init( out, vsapi, "lsmas: invalid frame size (W %d x H %d) detected, invalid/corrupted input file?", max_width, max_height );
+        return -1;
+    }
     if( vs_setup_video_rendering( vohp, ctx, vi, out, max_width, max_height ) < 0 )
         return -1;
     libavsmash_video_set_get_buffer_func( vdhp );
@@ -261,7 +265,9 @@ static VSFrameRef *get_frame
             vsapi->setFilterError( "lsmas: failed to output an alpha video frame.", frame_ctx );
             return NULL;
         }
-        VSMap *props = vsapi->getFramePropertiesRW( vs_frame );
+        VSMap *props = vsapi->getFramePropertiesRW( vs_frame2 );
+        vsapi->mapSetInt( props, "_ColorRange", 0, maReplace ); // alpha clip always full range
+        props = vsapi->getFramePropertiesRW( vs_frame );
         vsapi->mapConsumeFrame( props, "_Alpha", vs_frame2, maReplace );
     }
     set_frame_properties( vdhp, n, vi, av_frame, vs_frame, sample_number, vsapi );

@@ -188,6 +188,10 @@ static int prepare_video_decoding
     vs_vohp->vsapi     = vsapi;
     int max_width  = lwlibav_video_get_max_width ( vdhp );
     int max_height = lwlibav_video_get_max_height( vdhp );
+    if ( max_width == 0 || max_height == 0 ) {
+        set_error_on_init( out, vsapi, "lsmas: invalid frame size (W %d x H %d) detected, invalid/corrupted input file?", max_width, max_height );
+        return -1;
+    }
     if( vs_setup_video_rendering( vohp, ctx, vi, out, max_width, max_height ) < 0 )
         return -1;
     lwlibav_video_set_get_buffer_func( vdhp );
@@ -248,7 +252,9 @@ static VSFrameRef *get_frame
             vsapi->setFilterError( "lsmas: failed to output an alpha video frame.", frame_ctx );
             return NULL;
         }
-        VSMap *props = vsapi->getFramePropertiesRW( vs_frame );
+        VSMap *props = vsapi->getFramePropertiesRW( vs_frame2 );
+        vsapi->mapSetInt( props, "_ColorRange", 0, maReplace ); // alpha clip always full range
+        props = vsapi->getFramePropertiesRW( vs_frame );
         vsapi->mapConsumeFrame( props, "_Alpha", vs_frame2, maReplace );
     }
     set_frame_properties( n, vi, av_frame, vdhp->format->streams[vdhp->stream_index], vs_frame, vsapi );
@@ -342,6 +348,7 @@ void VS_CC vs_lwlibavsource_create( const VSMap *in, VSMap *out, void *user_data
     int64_t apply_repeat_flag;
     int64_t field_dominance;
     int64_t ff_loglevel;
+    int64_t soft_reset;
     const char *index_file_path;
     const char *format;
     const char *preferred_decoder_names;
@@ -359,6 +366,7 @@ void VS_CC vs_lwlibavsource_create( const VSMap *in, VSMap *out, void *user_data
     set_option_int64 ( &apply_repeat_flag,       1,    "repeat",         in, vsapi );
     set_option_int64 ( &field_dominance,         0,    "dominance",      in, vsapi );
     set_option_int64 ( &ff_loglevel,             0,    "ff_loglevel",    in, vsapi );
+    set_option_int64 ( &soft_reset,              1,    "soft_reset",     in, vsapi );
     set_option_string( &index_file_path,         NULL, "cachefile",      in, vsapi );
     set_option_string( &format,                  NULL, "format",         in, vsapi );
     set_option_string( &preferred_decoder_names, NULL, "decoder",        in, vsapi );
@@ -385,6 +393,7 @@ void VS_CC vs_lwlibavsource_create( const VSMap *in, VSMap *out, void *user_data
     lwlibav_video_set_forward_seek_threshold ( vdhp, CLIP_VALUE( seek_threshold, 1, 999 ) );
     lwlibav_video_set_preferred_decoder_names( vdhp, tokenize_preferred_decoder_names( hp->preferred_decoder_names_buf ) );
     lwlibav_video_set_prefer_hw_decoder      ( vdhp, CLIP_VALUE( prefer_hw_decoder, 0, 3 ) );
+    lwlibav_video_set_soft_reset             ( vdhp, CLIP_VALUE( soft_reset, 0, 1 ) );
     vs_vohp->variable_info          = CLIP_VALUE( variable_info,     0, 1 );
     vs_vohp->direct_rendering       = CLIP_VALUE( direct_rendering,  0, 1 ) && !format;
     vs_vohp->vs_output_pixel_format = vs_vohp->variable_info ? pfNone : get_vs_output_pixel_format( format );
@@ -418,7 +427,7 @@ void VS_CC vs_lwlibavsource_create( const VSMap *in, VSMap *out, void *user_data
     if( ret < 0 )
     {
         free_handler( &hp );
-        set_error_on_init( out, vsapi, "lsmas: failed to construct index." );
+        set_error_on_init( out, vsapi, "lsmas: failed to construct index for %s.", opt.file_path );
         return;
     }
     /* Eliminate silent failure: if apply_repeat_flag == 1, then fail if repeat is not applied. */

@@ -139,8 +139,8 @@ int open_decoder
           && av_cpu_count() > 1 )
         c->thread_count = 2;
     if( codec->id == AV_CODEC_ID_H264
-     && c->has_b_frames < 8 )
-        c->has_b_frames = 8;
+     && c->has_b_frames < 15 )
+        c->has_b_frames = 15; // The maximum possible for H264. Issue #10, EP01 frame 1507.
     if( codec->wrapper_name
      && !strcmp( codec->wrapper_name, "cuvid" ) )
         c->has_b_frames = 16; /* the maximum decoder latency for AVC and HEVC frame */

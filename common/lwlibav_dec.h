@@ -66,7 +66,9 @@ typedef struct
 
 typedef struct
 {
-    /* common */
+    /* common part of lwlibav_audio_decode_handler_t and lwlibav_video_decode_handler_t. */
+    /* Note: if you change this struct, must update lwlibav_audio_decode_handler_t
+     * and lwlibav_video_decode_handler_t as well. */
     AVFormatContext            *format;
     int                         stream_index;
     int                         error;
@@ -85,6 +87,7 @@ typedef struct
     uint32_t                    frame_count;
     AVFrame                    *frame_buffer;
     void                       *frame_list;
+    int                         soft_reset;
 } lwlibav_decode_handler_t;
 
 static inline int lavf_open_file

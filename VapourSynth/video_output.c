@@ -312,13 +312,14 @@ static void make_frame_planar_alpha16
     int vs_frame_linesize = vsapi->getStride( vs_frame, 0 );
     int vs_pixel_offset   = 0;
     int av_pixel_offset   = 0;
+    const int be = component_reorder_is_bigendian(component_reorder[3]);
     for( int i = 0; i < av_picture->height; i++ )
     {
-        uint16_t *av_pixel = (uint16_t *)(av_picture->data[0] + av_pixel_offset) + component_reorder[3];
+        uint16_t *av_pixel = (uint16_t *)(av_picture->data[0] + av_pixel_offset) + component_reorder_get_order(component_reorder[3]);
         uint16_t *vs_pixel = (uint16_t *)(vs_frame_data + vs_pixel_offset);
         for( int j = 0; j < av_picture->width; j++ )
         {
-            *(vs_pixel++) = *av_pixel;
+            *(vs_pixel++) = be ? ((*av_pixel >> 8) | ((*av_pixel & 0xff) << 8)) : *av_pixel;
             av_pixel += 4;
         }
         av_pixel_offset += av_picture->linesize[0];
@@ -479,6 +480,7 @@ static const component_reorder_t *get_component_reorder( enum AVPixelFormat av_o
             { AV_PIX_FMT_BGR48LE,      {  2,  1,  0, -1 } },
             { AV_PIX_FMT_RGBA64LE,     {  0,  1,  2,  3 } },
             { AV_PIX_FMT_BGRA64LE,     {  2,  1,  0,  3 } },
+            { AV_PIX_FMT_RGBA64BE,     {  0,  1,  2,  3 | component_reorder_bigendian } },
             { AV_PIX_FMT_NONE,         {  0,  1,  2,  3 } }
         };
     int i = 0;
@@ -685,6 +687,7 @@ static int determine_colorspace_conversion
             { AV_PIX_FMT_BGR48BE,      pfRGB48,     1 },
             { AV_PIX_FMT_RGBA64LE,     pfRGB48,     1 },
             { AV_PIX_FMT_BGRA64LE,     pfRGB48,     1 },
+            { AV_PIX_FMT_RGBA64BE,     pfRGB48,     1 },
             { AV_PIX_FMT_NONE,         pfNone,      1 }
         };
     if( vs_vohp->variable_info || vs_vohp->vs_output_pixel_format == pfNone )
@@ -969,10 +972,16 @@ int vs_setup_video_rendering
 {
     vs_video_output_handler_t *vs_vohp = (vs_video_output_handler_t *)lw_vohp->private_handler;
     const VSAPI *vsapi = vs_vohp->vsapi;
-    enum AVPixelFormat output_pixel_format;
+    enum AVPixelFormat output_pixel_format, alpha_pixel_format;
     if( determine_colorspace_conversion( vs_vohp, 0, ctx->pix_fmt, &output_pixel_format ) )
     {
         set_error_on_init( out, vsapi, "lsmas: %s is not supported", av_get_pix_fmt_name( ctx->pix_fmt ) );
+        return -1;
+    }
+    if( av_pix_fmt_desc_get( ctx->pix_fmt )->flags & AV_PIX_FMT_FLAG_ALPHA &&
+        determine_colorspace_conversion( vs_vohp, 1, ctx->pix_fmt, &alpha_pixel_format ) )
+    {
+        set_error_on_init( out, vsapi, "lsmas: %s's alpha format is not supported", av_get_pix_fmt_name( ctx->pix_fmt ) );
         return -1;
     }
     vs_vohp->direct_rendering &= vs_check_dr_available( ctx, ctx->pix_fmt );

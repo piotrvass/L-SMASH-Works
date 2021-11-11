@@ -53,6 +53,7 @@ struct lwlibav_audio_decode_handler_tag
     uint32_t            frame_count;
     AVFrame            *frame_buffer;
     audio_frame_info_t *frame_list;
+    int                 soft_reset;
     /* */
     AVPacket            packet;         /* for getting and freeing */
     AVPacket            alter_packet;   /* for consumed by the decoder instead of 'packet'. */

@@ -66,6 +66,8 @@ struct lwlibav_video_decode_handler_tag
     uint32_t            frame_count;
     AVFrame            *frame_buffer;
     video_frame_info_t *frame_list;         /* stored in presentation order */
+    int                 soft_reset;         /* if false: close and re-open codecs when seeking (default);
+                                               if true:  just calling avcodec_flush_buffers */
     /* */
     uint32_t            forward_seek_threshold;
     int                 seek_mode;
