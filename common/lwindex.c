@@ -28,6 +28,7 @@ extern "C"
 #endif  /* __cplusplus */
 #include <libavformat/avformat.h>       /* Demuxer */
 #include <libavcodec/avcodec.h>         /* Decoder */
+#include <libavcodec/bsf.h>
 #include <libswresample/swresample.h>   /* Resampler/Buffer */
 #include <libavutil/mathematics.h>      /* Timebase rescaler */
 #include <libavutil/pixdesc.h>
@@ -72,6 +73,7 @@ typedef struct
                                                  * 1: either VC-1 or WMV3
                                                  * 2: either VC-1 or WMV3 encapsulated in ASF */
     int                         already_decoded;
+    int                         random_access_key_frame; /* if 1, then we know the stream contains Recovery Point SEI, and we will only recognize a key frame if parser_ctx->key_frame > 1. */
     int (*decode)(AVCodecContext *, AVFrame *, int *, AVPacket * );
 } lwindex_helper_t;
 
@@ -1735,6 +1737,19 @@ static int get_picture_type
     av_parser_parse2( helper->parser_ctx, ctx,
                       &dummy, &dummy_size, filtered_pkt.data, filtered_pkt.size,
                       pkt->pts, pkt->dts, pkt->pos );
+
+    // (h264) Not all IDR frames are suitable random access points and some might not
+    // have SPS and PPS prefixed. See AkarinVS/L-SMASH-Works#19.
+    if( helper->parser_ctx->key_frame > 1 )
+        helper->random_access_key_frame = 1;
+    if( helper->random_access_key_frame )
+    {
+        if( helper->parser_ctx->key_frame > 1 )
+            pkt->flags |= AV_PKT_FLAG_KEY;
+        else
+            pkt->flags &= ~AV_PKT_FLAG_KEY;
+    }
+
     /* One frame decoding.
      * Sometimes, the parser returns a picture type other than I-picture and BI-picture even if the frame is a keyframe.
      * Actual decoding fixes this issue.
@@ -2065,10 +2080,10 @@ static int create_index
 {
     uint32_t video_info_count = 1 << 16;
     uint32_t audio_info_count = 1 << 16;
-    video_frame_info_t *video_info = (video_frame_info_t *)lw_malloc_zero( video_info_count * sizeof(video_frame_info_t) );
+    video_frame_info_t *video_info = (video_frame_info_t *)malloc( video_info_count * sizeof(video_frame_info_t) );
     if( !video_info )
         return -1;
-    audio_frame_info_t *audio_info = (audio_frame_info_t *)lw_malloc_zero( audio_info_count * sizeof(audio_frame_info_t) );
+    audio_frame_info_t *audio_info = (audio_frame_info_t *)malloc( audio_info_count * sizeof(audio_frame_info_t) );
     if( !audio_info )
     {
         free( video_info );
@@ -2349,6 +2364,7 @@ static int create_index
             {
                 ++video_sample_count;
                 video_frame_info_t *info = &video_info[video_sample_count];
+                memset( info, 0, sizeof(video_frame_info_t) );
                 info->pts             = pkt.pts;
                 info->dts             = pkt.dts;
                 info->file_offset     = pkt.pos;
@@ -2461,6 +2477,7 @@ static int create_index
                     /* Set up audio frame info. */
                     ++audio_sample_count;
                     audio_frame_info_t *info = &audio_info[audio_sample_count];
+                    memset( info, 0, sizeof(audio_frame_info_t) );
                     info->pts             = pkt.pts;
                     info->dts             = pkt.dts;
                     info->file_offset     = pkt.pos;
@@ -2916,13 +2933,13 @@ static int parse_index
     lwindex_stream_info_t *stream_info = NULL;
     if( vdhp->stream_index >= 0 )
     {
-        video_info = (video_frame_info_t *)lw_malloc_zero( video_info_count * sizeof(video_frame_info_t) );
+        video_info = (video_frame_info_t *)malloc( video_info_count * sizeof(video_frame_info_t) );
         if( !video_info )
             goto fail_parsing;
     }
     if( adhp->stream_index >= 0 )
     {
-        audio_info = (audio_frame_info_t *)lw_malloc_zero( audio_info_count * sizeof(audio_frame_info_t) );
+        audio_info = (audio_frame_info_t *)malloc( audio_info_count * sizeof(audio_frame_info_t) );
         if( !audio_info )
             goto fail_parsing;
     }
@@ -2999,7 +3016,7 @@ static int parse_index
                 if( vdhp->stream_index == -1 )
                 {
                     vdhp->stream_index = stream_index;
-                    video_info = (video_frame_info_t *)lw_malloc_zero( video_info_count * sizeof(video_frame_info_t) );
+                    video_info = (video_frame_info_t *)malloc( video_info_count * sizeof(video_frame_info_t) );
                     if( !video_info )
                         goto fail_parsing;
                 }
@@ -3047,6 +3064,7 @@ static int parse_index
                     }
                     ++video_sample_count;
                     video_frame_info_t *info = &video_info[video_sample_count];
+                    memset( info, 0, sizeof(video_frame_info_t) );
                     info->pts             = pts;
                     info->dts             = dts;
                     info->file_offset     = pos;
@@ -3120,6 +3138,7 @@ static int parse_index
                     aohp->output_bits_per_sample = MAX( aohp->output_bits_per_sample, bits_per_sample );
                     ++audio_sample_count;
                     audio_frame_info_t *info = &audio_info[audio_sample_count];
+                    memset( info, 0, sizeof(audio_frame_info_t) );
                     info->pts             = pts;
                     info->dts             = dts;
                     info->file_offset     = pos;

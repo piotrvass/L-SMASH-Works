@@ -97,6 +97,11 @@ static inline int lavf_open_file
     lw_log_handler_t *lhp
 )
 {
+    *format_ctx = avformat_alloc_context();
+
+    // The default of 5MB is not sufficient for UHD clips, e.g. https://4kmedia.org/lg-new-york-hdr-uhd-4k-demo/.
+    (*format_ctx)->probesize = 50*1024*1024;
+
     if( avformat_open_input( format_ctx, file_path, NULL, NULL ) )
     {
         lw_log_show( lhp, LW_LOG_FATAL, "Failed to avformat_open_input." );
