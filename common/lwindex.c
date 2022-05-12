@@ -47,6 +47,7 @@ extern "C"
 #include "lwlibav_audio_internal.h"
 #include "progress.h"
 #include "lwindex.h"
+#include "lwindex_version.h"
 #include "decode.h"
 #include "ffmpeg.h"
 
@@ -2066,6 +2067,23 @@ static char *create_lwi_path
     return buf;
 }
 
+const char *lwindex_version_header() {
+    static char buffer[128] = "";
+    if (buffer[0]) return buffer;
+    uint8_t lwindex_version[4] =
+    {
+        (LWINDEX_VERSION >> 24) & 0xff,
+        (LWINDEX_VERSION >> 16) & 0xff,
+        (LWINDEX_VERSION >>  8) & 0xff,
+        LWINDEX_VERSION        & 0xff
+    };
+    sprintf( buffer, "<LSMASHWorksIndexVersion=%" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ">\n"
+                     "<LibavReaderIndexFile=%d>\n",
+            lwindex_version[0], lwindex_version[1], lwindex_version[2], lwindex_version[3],
+            LWINDEX_INDEX_FILE_VERSION );
+    return buffer;
+}
+
 static int create_index
 (
     lwlibav_file_handler_t         *lwhp,
@@ -2143,16 +2161,7 @@ static int create_index
     if( index )
     {
         /* Write Index file header. */
-        uint8_t lwindex_version[4] =
-        {
-            (LWINDEX_VERSION >> 24) & 0xff,
-            (LWINDEX_VERSION >> 16) & 0xff,
-            (LWINDEX_VERSION >>  8) & 0xff,
-             LWINDEX_VERSION        & 0xff
-        };
-        fprintf( index, "<LSMASHWorksIndexVersion=%" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 ">\n",
-                 lwindex_version[0], lwindex_version[1], lwindex_version[2], lwindex_version[3] );
-        fprintf( index, "<LibavReaderIndexFile=%d>\n", LWINDEX_INDEX_FILE_VERSION );
+        fprintf( index, "%s", lwindex_version_header() );
         fprintf( index, "<InputFilePath>%s</InputFilePath>\n", lwhp->file_path );
 #ifdef _WIN32
         wchar_t *wname;

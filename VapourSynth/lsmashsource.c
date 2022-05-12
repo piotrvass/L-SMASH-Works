@@ -22,6 +22,7 @@
  * However, when distributing its binary file, it will be under LGPL or GPL. */
 
 #include "../common/cpp_compat.h"
+#include "../common/lwindex_version.h"
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -80,6 +81,7 @@ void VS_CC vs_version_create( const VSMap *in, VSMap *out, void *user_data, VSCo
     vsapi->propSetData(out, "ffmpeg_version", LIBAVFORMAT_IDENT, -1, paAppend);
     vsapi->propSetData(out, "ffmpeg_version", LIBAVUTIL_IDENT, -1, paAppend);
     vsapi->propSetData(out, "ffmpeg_version", LIBSWSCALE_IDENT, -1, paAppend);
+    vsapi->propSetData(out, "lwindex_version", lwindex_version_header(), -1, paAppend);
 }
 
 VS_EXTERNAL_API(void) VapourSynthPluginInit( VSConfigPlugin config_func, VSRegisterFunction register_func, VSPlugin *plugin )

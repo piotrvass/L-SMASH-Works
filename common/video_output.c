@@ -135,7 +135,8 @@ static struct SwsContext *update_scaler_configuration
     av_opt_set_int( sws_ctx, "src_format", input_pixel_format,  0 );
     av_opt_set_int( sws_ctx, "dst_format", output_pixel_format, 0 );
     const AVPixFmtDescriptor *out_fmtdesc = av_pix_fmt_desc_get( output_pixel_format );
-    const int dst_range = (out_fmtdesc->flags & AV_PIX_FMT_FLAG_RGB) ? 1:0;
+    // RGB always in full-range, but YUV might also be full-range (e.g. JPEG) as well.
+    const int dst_range = yuv_range || ((out_fmtdesc->flags & AV_PIX_FMT_FLAG_RGB) ? 1:0);
     av_opt_set_int( sws_ctx, "src_range",  yuv_range, 0 );
     av_opt_set_int( sws_ctx, "dst_range",  dst_range, 0 );
     const int *yuv2rgb_coeffs = sws_getCoefficients( colorspace );
