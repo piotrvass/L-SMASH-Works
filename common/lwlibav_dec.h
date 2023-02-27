@@ -17,6 +17,7 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *****************************************************************************/
+#include <stdio.h>
 
 /* This file is available under an ISC license. */
 
@@ -90,6 +91,42 @@ typedef struct
     int                         soft_reset;
 } lwlibav_decode_handler_t;
 
+static inline int64_t lavf_skip_tc_code
+(
+    AVFormatContext *ctx,
+    int64_t          timestamp // must be byte offset
+)
+{
+    // mpegts read_packet won't skip the TC code field, and if the TC word happens
+    // to contain a 0x47 sync byte, read_packet might be confused and lock to an
+    // incorrect synchronization point.
+    // https://github.com/FFmpeg/FFmpeg/blob/n4.4/libavformat/mpegts.c#L2898
+    if (strcmp(ctx->iformat->name, "mpegts") == 0) {
+        // However, not all mpegts files are BD, e.g. TV ts does not have such a 4B
+        // TP_extra_header.
+        //
+        // There is no easy way to differentiate between the two (using file extension
+        // will be too fragile.) Fortunately, the top 2-bit of TP_extra_header is
+        // the copy permission indication, which all sources seem to set to 0, so
+        // the first byte of TP_extra_header should not be 0x47, and we can use
+        // this to detect these two cases.
+        //
+        // We do the offset compensation only when the 1st byte is not 0x47 and the
+        // 5th byte is 0x47.
+        // This test should not affect the performance much as av_seek_frame is going
+        // to read at least 188 bytes from position timestamp anyway.
+        unsigned char buf[5];
+        const char sync_byte = 0x47;
+        avio_seek(ctx->pb, timestamp, SEEK_SET);
+        avio_read(ctx->pb, buf, sizeof buf);
+        if (buf[0] != sync_byte && buf[4] == sync_byte) {
+            timestamp += 4; // skip the TC header
+            avio_seek(ctx->pb, timestamp, SEEK_SET);
+        }
+    }
+    return timestamp;
+}
+
 static inline int lavf_open_file
 (
     AVFormatContext **format_ctx,
@@ -107,6 +144,7 @@ static inline int lavf_open_file
         lw_log_show( lhp, LW_LOG_FATAL, "Failed to avformat_open_input." );
         return -1;
     }
+    lavf_skip_tc_code( *format_ctx, 0 );
     if( avformat_find_stream_info( *format_ctx, NULL ) < 0 )
     {
         lw_log_show( lhp, LW_LOG_FATAL, "Failed to avformat_find_stream_info." );

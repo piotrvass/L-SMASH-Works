@@ -1062,6 +1062,7 @@ void vs_set_frame_properties
 {
     VSMap *props = vsapi->getFramePropsRW( vs_frame );
     vsapi->propSetInt( props, "_FrameNumber", n, paReplace );
+    vsapi->propSetInt( props, "_FramePktSize", av_frame->pkt_size, paReplace );
     /* Sample aspect ratio */
     vsapi->propSetInt( props, "_SARNum", av_frame->sample_aspect_ratio.num, paReplace );
     vsapi->propSetInt( props, "_SARDen", av_frame->sample_aspect_ratio.den, paReplace );
