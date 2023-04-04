@@ -90,6 +90,7 @@ typedef struct
     lwlibav_audio_decode_handler_t *adhp;
     lwlibav_audio_output_handler_t *aohp;
     char preferred_decoder_names_buf[PREFERRED_DECODER_NAMES_BUFSIZE];
+    int64_t framelist;
 } lwlibav_handler_t;
 
 /* Deallocate the handler of this plugin. */
@@ -285,6 +286,41 @@ static const VSFrameRef *VS_CC vs_filter_get_frame( int n, int activation_reason
     set_frame_properties( n, vi, av_frame, vdhp->format->streams[vdhp->stream_index], vs_frame,
                         ( vohp->repeat_control ) ? vohp->frame_order_list[n].top : n,
                         ( vohp->repeat_control ) ? vohp->frame_order_list[n].bottom : n,vsapi );
+    if ( n == 0 && hp->framelist )
+    {
+        const char *ftype = "IPB";
+        int cnt[3] = {0, 0, 0};
+        const video_frame_info_t *info = &hp->vdhp->frame_list[1]; // 1-based index
+        for (int i = 0; i < hp->vdhp->frame_count; i++)
+        {
+            int type = info[i].pict_type;
+            if (type >= 1 && type <= 3)
+                cnt[type - 1]++;
+        }
+        int64_t *buf = malloc( sizeof(*buf) * hp->vdhp->frame_count );
+        if (!buf)
+        {
+            vsapi->freeFrame( vs_frame );
+            vsapi->setFilterError( "lsmas: failed to output an alpha video frame.", frame_ctx );
+            return NULL;
+        }
+        int64_t * const lists[3] = {&buf[0], &buf[cnt[0]], &buf[cnt[0]+cnt[1]]};
+        int64_t num[3] = {0, 0, 0};
+        for (int i = 0; i < hp->vdhp->frame_count; i++)
+        {
+            int type = info[i].pict_type;
+            if (type >= 1 && type <= 3)
+                lists[type-1][num[type-1]++] = i;
+        }
+        VSMap *props = vsapi->getFramePropsRW( vs_frame );
+        char propname[] = "_?FrameList";
+        for (int i = 0; i < 3; i++)
+        {
+            propname[1] = ftype[i];
+            vsapi->propSetIntArray( props, propname, lists[i], cnt[i] );
+        }
+        free( buf );
+    }
     return vs_frame;
 }
 
@@ -356,6 +392,7 @@ void VS_CC vs_lwlibavsource_create( const VSMap *in, VSMap *out, void *user_data
     set_option_int64 ( &field_dominance,         0,    "dominance",      in, vsapi );
     set_option_int64 ( &ff_loglevel,             0,    "ff_loglevel",    in, vsapi );
     set_option_int64 ( &soft_reset,              1,    "soft_reset",     in, vsapi );
+    set_option_int64 ( &hp->framelist,           0,    "framelist",      in, vsapi );
     set_option_string( &index_file_path,         NULL, "cachefile",      in, vsapi );
     set_option_string( &format,                  NULL, "format",         in, vsapi );
     set_option_string( &preferred_decoder_names, NULL, "decoder",        in, vsapi );
