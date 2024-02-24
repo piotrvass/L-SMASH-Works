@@ -39,7 +39,16 @@
 #include "video_output.h"
 #include <VSHelper.h>
 
-#include <emmintrin.h>
+#if defined(__GNUC__)
+#  if defined(__ARM_NEON__) || defined(__ARM_NEON)
+#    include "../common/sse2neon.h"
+#  else
+#    include <emmintrin.h>
+#  endif
+#elif defined(_MSC_VER)
+#  include <intrin.h>
+#endif
+
 
 typedef struct
 {
